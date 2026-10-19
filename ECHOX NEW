@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECHOX — Music</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#08090d;color:#f5f5f7;
+font-family:Arial,sans-serif;padding:22px}
+main{max-width:700px;margin:auto}
+h1{letter-spacing:7px;font-size:36px}
+.sub{color:#999}
+.search{display:flex;gap:8px;margin:24px 0}
+input{min-width:0;flex:1;padding:15px;border-radius:12px;
+border:1px solid #333;background:#15161d;color:white}
+button{padding:13px 16px;border:0;border-radius:12px;
+background:#b6ff3b;color:#111;font-weight:bold}
+.track{display:flex;align-items:center;gap:12px;
+background:#15161d;padding:12px;border-radius:14px;
+margin:10px 0}
+.cover{width:58px;height:58px;border-radius:9px;
+object-fit:cover;background:#333}
+.info{flex:1;min-width:0}
+.name{font-weight:bold;overflow-wrap:anywhere}
+.artist{color:#aaa;font-size:14px;margin-top:6px}
+#status{color:#b6ff3b}
+audio{width:100%;margin-top:16px}
+a{color:#b6ff3b}
+</style>
+</head>
+<body>
+<main>
+<h1>ECHOX</h1>
+<div class="sub">Discover your next sound.</div>
+
+<form class="search" id="form">
+<input id="query" placeholder="Qo‘shiq yoki ijodkor nomi..."
+autocomplete="off">
+<button type="submit">Qidirish</button>
+</form>
+
+<p id="status">Qo‘shiq nomini yozib, qidiring.</p>
+<div id="results"></div>
+
+<h3 id="now">Hozir ijro etilmoqda</h3>
+<audio id="player" controls preload="none"></audio>
+<p class="sub">Musiqa: Jamendo ijodkorlari katalogidan.</p>
+</main>
+
+<script>
+const CLIENT_ID = "709fa152";
+const results = document.getElementById("results");
+const status = document.getElementById("status");
+const player = document.getElementById("player");
+const now = document.getElementById("now");
+let requestNumber = 0;
+
+function searchMusic(query) {
+  const id = ++requestNumber;
+  status.textContent = "Qidirilmoqda...";
+  results.replaceChildren();
+
+  const callback = "echoxResult" + id;
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    format: "json",
+    limit: "20",
+    search: query,
+    audioformat: "mp31",
+    callback: callback
+  });
+
+  const script = document.createElement("script");
+  script.src = "https://api.jamendo.com/v3.0/tracks/?" +
+    params.toString();
+
+  window[callback] = function(data) {
+    delete window[callback];
+    script.remove();
+
+    if (id !== requestNumber) return;
+
+    const tracks = data && data.results ? data.results : [];
+    if (!tracks.length) {
+      status.textContent = "Qo‘shiqlar topilmadi. Boshqa nom kiriting.";
+      return;
+    }
+
+    status.textContent = tracks.length + " ta natija topildi.";
+
+    tracks.forEach(track => {
+      const row = document.createElement("div");
+      row.className = "track";
+
+      const cover = document.createElement("img");
+      cover.className = "cover";
+      cover.alt = "Albom rasmi";
+      cover.src = track.image || track.album_image || "";
+      
+      const info = document.createElement("div");
+      info.className = "info";
+
+      const title = document.createElement("div");
+      title.className = "name";
+      title.textContent = track.name || "Nomsiz qo‘shiq";
+
+      const artist = document.createElement("div");
+      artist.className = "artist";
+      artist.textContent = track.artist_name || "Noma’lum ijodkor";
+
+      info.append(title, artist);
+
+      const play = document.createElement("button");
+      play.textContent = "▶";
+      play.setAttribute("aria-label", "Qo‘shiqni tinglash");
+
+      play.onclick = function() {
+        if (!track.audio) {
+          status.textContent = "Bu qo‘shiq uchun audio mavjud emas.";
+          return;
+        }
+        player.src = track.audio;
+        now.textContent = "Ijro: " + track.name;
+        player.play().catch(() => {
+          status.textContent =
+            "Ijro boshlanmadi. Internetni va Play tugmasini tekshiring.";
+        });
+      };
+
+      row.append(cover, info, play);
+
+      if (track.shareurl) {
+        const link = document.createElement("a");
+        link.href = track.shareurl;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = "Jamendo’da ochish";
+        link.style.display = "block";
+        link.style.margin = "0 0 14px 82px";
+        results.append(row, link);
+      } else {
+        results.append(row);
+      }
+    });
+  };
+
+  window[callback] = window[callback];
+  script.onerror = function() {
+    delete window[callback];
+    script.remove();
+    if (id === requestNumber) {
+      status.textContent =
+        "Xatolik yuz berdi. Internet yoki API xizmatini tekshiring.";
+    }
+  };
+
+  document.body.appendChild(script);
+}
+
+document.getElementById("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const query = document.getElementById("query").value.trim();
+  if (!query) {
+    status.textContent = "Avval qo‘shiq yoki ijodkor nomini yozing.";
+    return;
+  }
+  searchMusic(query);
+});
+</script>
+</body>
+</html>
